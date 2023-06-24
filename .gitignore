@@ -1,2 +1,5 @@
 vendor
 .idea
+config.json
+storage.json
+body.html
