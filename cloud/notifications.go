@@ -398,7 +398,7 @@ func (c *Cloud) DoSendNotification(t Todo) bool {
 	if t.Due == nil {
 		return false
 	}
-	if t.Due.After(time.Now()) {
+	if t.Due.After(time.Now().UTC()) {
 		return false
 	}
 	return true
