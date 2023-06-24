@@ -216,6 +216,9 @@ func mustParse(str string) time.Time {
 	if err != nil {
 		panic(err)
 	}
+	// I don't know what timezone this is. Are all nextcloud instances the same TZ? is there an API to get the timezone?
+	t = t.UTC()
+	t = t.Add(time.Hour * 4)
 	return t
 }
 
@@ -401,6 +404,7 @@ func (c *Cloud) DoSendNotification(t Todo) bool {
 	if t.Due.After(time.Now().UTC()) {
 		return false
 	}
+	log.Info("can be sent:", t.Due.Format(time.RFC3339), "vs", time.Now().UTC().Format(time.RFC3339))
 	return true
 }
 
