@@ -43,7 +43,7 @@ func main() {
 	log.Info("Continuing...")
 	for {
 		c.SendNotifications()
-		log.Info("Sleeping for 5 minutes")
-		time.Sleep(time.Minute * 5)
+		log.Info("Sleeping for 1 minute")
+		time.Sleep(time.Minute * 1)
 	}
 }
