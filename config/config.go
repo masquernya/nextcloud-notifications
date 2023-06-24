@@ -6,7 +6,9 @@ import (
 )
 
 type Config struct {
-	CloudUrl string
+	CloudUrl       string
+	DiscordWebhook string
+	DiscordPingId  string
 }
 
 var config *Config
