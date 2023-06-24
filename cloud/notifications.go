@@ -436,6 +436,7 @@ func (c *Cloud) SendNotifications() {
 	}
 	log.Info("tasks", tasks)
 	sent := 0
+	total := 0
 	for _, task := range tasks {
 		for {
 			taskList, err := c.GetAllTasks(task.Url)
@@ -444,6 +445,7 @@ func (c *Cloud) SendNotifications() {
 			}
 			//log.Info("taskList", taskList)
 			for _, taskEntry := range taskList {
+				total++
 				if c.DoSendNotification(taskEntry) && storage.TrySetNotified(taskEntry.UID) {
 					log.Info("notify for", taskEntry)
 					c.SendNotification("Task \""+taskEntry.Summary+"\" is due", "Task \""+taskEntry.Summary+"\" is due as of "+c.relTime(*taskEntry.Due), storage.Get().LoginUsername)
@@ -453,5 +455,5 @@ func (c *Cloud) SendNotifications() {
 			break
 		}
 	}
-	log.Info("sent", sent, "notifications")
+	log.Info("sent", sent, "notifications of", total, "tasks")
 }
