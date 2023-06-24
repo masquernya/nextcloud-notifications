@@ -1,6 +1,7 @@
 package cloud
 
 import (
+	"bytes"
 	"encoding/json"
 	"encoding/xml"
 	"github.com/masquernya/nextcloud-notifications/config"
@@ -284,6 +285,7 @@ func debugPrint(a any) string {
 type TodoDefinition struct {
 	Url   string
 	Label string
+	Id    string
 }
 
 func (c *Cloud) GetAllTaskGroups() ([]TodoDefinition, error) {
@@ -328,9 +330,12 @@ func (c *Cloud) GetAllTaskGroups() ([]TodoDefinition, error) {
 					}
 				}
 				if isTodo {
+					id := strings.ReplaceAll(url, "/remote.php/dav/calendars/"+storage.Get().LoginUsername+"/", "")
+					id = id[0:strings.Index(id, "/")]
 					calendarData = append(calendarData, TodoDefinition{
 						Label: label,
 						Url:   url,
+						Id:    id,
 					})
 				}
 			}
@@ -399,6 +404,52 @@ func (c *Cloud) DoSendNotification(t Todo) bool {
 	return true
 }
 
+type DiscordWebhookRequest struct {
+	Content string `json:"content"`
+}
+
+func (c *Cloud) SendDiscordNotification(summary string, group string, uid string) {
+	if config.Get().DiscordWebhook == "" {
+		return
+	}
+	url := config.Get().CloudUrl + "/apps/tasks/#/calendars/" + group + "/tasks/" + uid + ".ics"
+	log.Info("url", url)
+	content := ""
+	if config.Get().DiscordPingId != "" {
+		content = "<@" + config.Get().DiscordPingId + "> "
+	}
+	content += "Task [\"" + summary + "\"](" + url + ") is due."
+	bits, _ := json.Marshal(DiscordWebhookRequest{
+		Content: content,
+	})
+	for {
+		req, err := http.NewRequest("POST", config.Get().DiscordWebhook, bytes.NewReader(bits))
+		if err != nil {
+			panic(err)
+		}
+		req.Header.Set("content-type", "application/json")
+		resp, err := c.client.Do(req)
+		if err != nil {
+			log.Info("error sending discord notification", err)
+			time.Sleep(5 * time.Second)
+			continue
+		}
+		bits, err = io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if err != nil {
+			log.Info("error read body in sending discord notification", err)
+			time.Sleep(5 * time.Second)
+			continue
+		}
+		if resp.StatusCode < 200 || resp.StatusCode > 299 {
+			log.Info("error sending discord notification", resp.StatusCode, string(bits))
+			time.Sleep(5 * time.Second)
+			continue
+		}
+		return
+	}
+}
+
 func (c *Cloud) SendNotification(shortMessage string, longMessage string, destinationUser string) {
 	for {
 		req, err := http.NewRequest("POST", config.Get().CloudUrl+"/ocs/v2.php/apps/notifications/api/v2/admin_notifications/"+destinationUser, strings.NewReader("shortMessage="+url.QueryEscape(shortMessage)+"&longMessage="+url.QueryEscape(longMessage)))
@@ -448,7 +499,8 @@ func (c *Cloud) SendNotifications() {
 				total++
 				if c.DoSendNotification(taskEntry) && storage.TrySetNotified(taskEntry.UID) {
 					log.Info("notify for", taskEntry)
-					c.SendNotification("Task \""+taskEntry.Summary+"\" is due", "Task \""+taskEntry.Summary+"\" is due as of "+c.relTime(*taskEntry.Due), storage.Get().LoginUsername)
+					//c.SendNotification("Task \""+taskEntry.Summary+"\" is due", "Task \""+taskEntry.Summary+"\" is due as of "+c.relTime(*taskEntry.Due), storage.Get().LoginUsername)
+					c.SendDiscordNotification(taskEntry.Summary, task.Id, taskEntry.UID)
 					sent++
 				}
 			}
